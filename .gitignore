@@ -1,0 +1,20 @@
+# Environment Files
+.env
+.env.development
+.env.production
+
+# Node Modules
+node_modules/
+
+# Logs & PM2
+logs/
+*.log
+~/.pm2/
+dump.pm2
+
+# Uploads
+uploads/
+
+# System Files
+.DS_Store
+Thumbs.db

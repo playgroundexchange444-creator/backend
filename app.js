@@ -1,0 +1,67 @@
+import express from "express";
+import cors from "cors";
+import morgan from "morgan";
+import path from "path";
+import { fileURLToPath } from "url";
+import pinoHttp from "pino-http";
+import logger from "./config/logger.js";
+
+import authRoutes from "./routes/authRoutes.js";
+import oddsRoutes from "./routes/oddsRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import betRoutes from "./routes/betRoutes.js";
+import matchRoutes from "./routes/matchRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
+import publicRoutes from "./routes/publicRoutes.js";
+import commissionRoutes from "./routes/commissionRoutes.js";
+import sportmonksRoutes from "./routes/sportmonksRoutes.js";
+
+import { errorHandler } from "./middlewares/errorHandler.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+app.use(express.json({ limit: "10mb" }));
+
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    credentials: true,
+  })
+);
+
+app.use(morgan("dev"));
+
+app.use(
+  pinoHttp({
+    logger,
+    autoLogging: true,
+    redact: ["req.headers.authorization"],
+  })
+);
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.use("/api/auth", authRoutes);
+app.use("/api/odds", oddsRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/wallet", walletRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/bets", betRoutes);
+app.use("/api/matches", matchRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/public", publicRoutes);
+app.use("/api/commission", commissionRoutes);
+app.use("/api/sportmonks", sportmonksRoutes);
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "OK", uptime: process.uptime() });
+});
+
+app.use(errorHandler);
+
+export default app;
