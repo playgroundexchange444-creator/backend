@@ -28,38 +28,39 @@ const app = express();
 // ✅ Middleware: JSON parsing
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ CORS setup (allow your frontend domains)
-// ✅ CORS setup (allow your frontend domains)
+// ✅ Allowed frontend origins
 const allowedOrigins = [
   "https://superadmin.playgroundexchange.live",
   "https://playgroundexchange.live",
-  "https://www.playgroundexchange.live", // ✅ just in case
+  "https://www.playgroundexchange.live",
   "http://localhost:5173",
   "http://localhost:5174",
 ];
 
+// ✅ CORS setup
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // allow mobile apps / curl
 
       const normalizedOrigin = origin.replace(/\/$/, ""); // remove trailing slash
 
       if (allowedOrigins.includes(normalizedOrigin)) {
         console.log("✅ Allowed origin:", normalizedOrigin);
-        return callback(null, true);
+        callback(null, true);
       } else {
         console.warn("❌ CORS blocked request from origin:", normalizedOrigin);
-        return callback(new Error("Not allowed by CORS"));
+        callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// ✅ Handle preflight requests
-app.options("*", cors());
-
+// ✅ Properly handle preflight requests (Express v5 compatible)
+app.options(/.*/, cors());
 
 // ✅ Logging middlewares
 app.use(morgan("dev"));
@@ -92,7 +93,18 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK", uptime: process.uptime() });
 });
 
-// ✅ Error handling middleware
+// ✅ Graceful CORS error response
+app.use((err, req, res, next) => {
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({
+      success: false,
+      message: "CORS policy: This origin is not allowed to access the resource.",
+    });
+  }
+  next(err);
+});
+
+// ✅ Global error handler
 app.use(errorHandler);
 
 export default app;
