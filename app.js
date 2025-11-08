@@ -31,29 +31,35 @@ app.use(express.json({ limit: "10mb" }));
 // ✅ CORS setup (allow your frontend domains)
 // ✅ CORS setup (allow your frontend domains)
 const allowedOrigins = [
-  "https://superadmin.playgroundexchange.live", // Admin frontend
-  "https://playgroundexchange.live",            // Main frontend ✅ added
-  "http://localhost:5173",                      // Local dev
-  "http://localhost:5174",                      // Local dev (Vite alt)
+  "https://superadmin.playgroundexchange.live",
+  "https://playgroundexchange.live",
+  "https://www.playgroundexchange.live", // ✅ just in case
+  "http://localhost:5173",
+  "http://localhost:5174",
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like curl or mobile apps)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        console.log("✅ Allowed origin:", origin);
+      const normalizedOrigin = origin.replace(/\/$/, ""); // remove trailing slash
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
+        console.log("✅ Allowed origin:", normalizedOrigin);
         return callback(null, true);
       } else {
-        console.warn("❌ CORS blocked request from origin:", origin);
+        console.warn("❌ CORS blocked request from origin:", normalizedOrigin);
         return callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
   })
 );
+
+// ✅ Handle preflight requests
+app.options("*", cors());
+
 
 // ✅ Logging middlewares
 app.use(morgan("dev"));
