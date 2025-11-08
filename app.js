@@ -28,12 +28,12 @@ const app = express();
 // ✅ Middleware: JSON parsing
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ CORS setup (allow your frontend domain + localhost)
+// ✅ CORS setup (allow your frontend domains)
 const allowedOrigins = [
-  "https://superadmin.playgroundexchange.live", // your production frontend
-  "https://playgroundexchange.live", // user dev
-  "http://localhost:5173", // local dev
-  "http://localhost:5174", // local dev (Vite alternate)
+  "https://superadmin.playgroundexchange.live", // Admin frontend
+  "https://playgroundexchange.live",            // User frontend ✅ added
+  "http://localhost:5173",                      // Local dev
+  "http://localhost:5174",                      // Local dev (Vite alt)
 ];
 
 app.use(
@@ -49,7 +49,7 @@ app.use(
       }
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    credentials: true, // important if you're using cookies or auth headers
+    credentials: true, // allow cookies/auth headers
   })
 );
 
