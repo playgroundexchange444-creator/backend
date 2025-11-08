@@ -1,9 +1,8 @@
-# Environment Files
-.env
-.env.development
-.env.production
+# # Environment Files
+# #.env
+# #.env.production
 
-# Node Modules
+#Node Modules
 node_modules/
 
 # Logs & PM2
