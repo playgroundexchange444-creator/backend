@@ -24,21 +24,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
 app.use(express.json({ limit: "10mb" }));
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://superadmin.playgroundexchange.live",
+  "https://playgroundexchange.live",
+];
 
 app.use(
   cors({
-    origin: [
-      "https://playgroundexchange.live",
-      "https://superadmin.playgroundexchange.live",
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,
   })
 );
 
 app.use(morgan("dev"));
-
 app.use(
   pinoHttp({
     logger,
@@ -63,6 +67,20 @@ app.use("/api/sportmonks", sportmonksRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK", uptime: process.uptime() });
+});
+
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
+
+app.use((err, req, res, next) => {
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({
+      success: false,
+      message: "CORS policy: Origin not allowed.",
+    });
+  }
+  next(err);
 });
 
 app.use(errorHandler);
