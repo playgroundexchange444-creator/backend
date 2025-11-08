@@ -60,7 +60,6 @@ app.use(
 );
 
 // ✅ Properly handle preflight requests (Express v5 compatible)
-app.options(/.*/, cors());
 
 // ✅ Logging middlewares
 app.use(morgan("dev"));
