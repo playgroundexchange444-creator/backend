@@ -60,6 +60,7 @@ app.use(
 );
 
 // ✅ Properly handle preflight requests (Express v5 compatible)
+app.options(/.*/, cors());
 
 // ✅ Logging middlewares
 app.use(morgan("dev"));
@@ -90,6 +91,11 @@ app.use("/api/sportmonks", sportmonksRoutes);
 // ✅ Health check route
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK", uptime: process.uptime() });
+});
+
+// ✅ Fallback 404 handler for unmatched routes
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
 });
 
 // ✅ Graceful CORS error response
