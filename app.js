@@ -31,7 +31,7 @@ app.use(express.json({ limit: "10mb" }));
 // ✅ CORS setup (allow your frontend domains)
 const allowedOrigins = [
   "https://superadmin.playgroundexchange.live", // Admin frontend
-  "https://playgroundexchange.live",            // User frontend ✅ added
+  "https://playgroundexchange.live",            // Main frontend ✅ added
   "http://localhost:5173",                      // Local dev
   "http://localhost:5174",                      // Local dev (Vite alt)
 ];
@@ -41,7 +41,9 @@ app.use(
     origin: function (origin, callback) {
       // Allow requests with no origin (like curl or mobile apps)
       if (!origin) return callback(null, true);
+
       if (allowedOrigins.includes(origin)) {
+        console.log("✅ Allowed origin:", origin);
         return callback(null, true);
       } else {
         console.warn("❌ CORS blocked request from origin:", origin);
