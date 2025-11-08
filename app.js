@@ -31,6 +31,7 @@ app.use(express.json({ limit: "10mb" }));
 // ✅ CORS setup (allow your frontend domain + localhost)
 const allowedOrigins = [
   "https://superadmin.playgroundexchange.live", // your production frontend
+  "https://playgroundexchange.live", // user dev
   "http://localhost:5173", // local dev
   "http://localhost:5174", // local dev (Vite alternate)
 ];
