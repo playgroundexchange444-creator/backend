@@ -38,26 +38,28 @@ const allowedOrigins = [
 ];
 
 // ✅ CORS setup
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow mobile apps / curl
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // allow mobile apps / curl
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      console.log("✅ Allowed origin:", normalizedOrigin);
+      callback(null, true);
+    } else {
+      console.warn("❌ CORS blocked request from:", normalizedOrigin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+app.use(cors(corsOptions));
 
-      const normalizedOrigin = origin.replace(/\/$/, ""); // remove trailing slash
+// ✅ Handle preflight requests for all routes safely (Express v5 compatible)
+app.options("/*", cors(corsOptions));
 
-      if (allowedOrigins.includes(normalizedOrigin)) {
-        console.log("✅ Allowed origin:", normalizedOrigin);
-        callback(null, true);
-      } else {
-        console.warn("❌ CORS blocked request from origin:", normalizedOrigin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// ✅ Logging
 app.use(morgan("dev"));
 app.use(
   pinoHttp({
@@ -67,10 +69,10 @@ app.use(
   })
 );
 
-// ✅ Static file serving
+// ✅ Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ✅ API routes
+// ✅ Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/odds", oddsRoutes);
 app.use("/api/user", userRoutes);
@@ -83,22 +85,22 @@ app.use("/api/public", publicRoutes);
 app.use("/api/commission", commissionRoutes);
 app.use("/api/sportmonks", sportmonksRoutes);
 
-// ✅ Health check route
+// ✅ Health check
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK", uptime: process.uptime() });
 });
 
-// ✅ Fallback 404 handler for unmatched routes
+// ✅ 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });
 
-// ✅ Graceful CORS error response
+// ✅ CORS error handler
 app.use((err, req, res, next) => {
   if (err.message === "Not allowed by CORS") {
     return res.status(403).json({
       success: false,
-      message: "CORS policy: This origin is not allowed to access the resource.",
+      message: "CORS policy: Origin not allowed.",
     });
   }
   next(err);
