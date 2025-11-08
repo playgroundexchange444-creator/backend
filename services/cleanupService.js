@@ -1,4 +1,3 @@
-// 📁 services/cleanupService.js
 import cron from "node-cron";
 import Match from "../models/Match.js";
 import Bet from "../models/Bet.js";
@@ -8,30 +7,26 @@ import logger from "../config/logger.js";
 export const autoCleanup = async () => {
   try {
     const now = Date.now();
-    const oneDay = 24 * 60 * 60 * 1000;
+    const oneHour = 60 * 60 * 1000;
 
-    // 🏏 Delete old matches (completed > 3 days)
     const matchResult = await Match.deleteMany({
       status: { $in: ["finished", "completed", "cancelled"] },
-      updatedAt: { $lte: new Date(now - 3 * oneDay) },
+      updatedAt: { $lte: new Date(now - 12 * oneHour) },
     });
 
-    // 💰 Delete old settled bets (settled > 7 days)
     const betResult = await Bet.deleteMany({
       settled: true,
-      settledAt: { $lte: new Date(now - 7 * oneDay) },
+      settledAt: { $lte: new Date(now - 7 * 24 * oneHour) },
     });
 
-    // ⏳ Delete expired pending bets (> 1 day old)
     const pendingResult = await Bet.deleteMany({
       status: "pending",
-      expireAt: { $exists: true, $lte: new Date(now - oneDay) },
+      expireAt: { $exists: true, $lte: new Date(now - 24 * oneHour) },
     });
 
-    // 💳 Delete failed transactions (> 7 days)
     const txResult = await Transaction.deleteMany({
       status: "failed",
-      createdAt: { $lte: new Date(now - 7 * oneDay) },
+      createdAt: { $lte: new Date(now - 7 * 24 * oneHour) },
     });
 
     logger.info(
@@ -42,11 +37,11 @@ export const autoCleanup = async () => {
        Failed transactions deleted: ${txResult.deletedCount}`
     );
   } catch (err) {
-    logger.error(`[❌ Cleanup Error]: ${err.message}`);
+    logger.error(`[ Cleanup Error]: ${err.message}`);
   }
 };
 
 export const startAutoCleanup = () => {
   cron.schedule("0 2 * * *", autoCleanup);
-  logger.info("🕒 Auto cleanup scheduled: Every day at 2:00 AM");
+  logger.info("🕑 uto cleanup scheduled Every day at 2:00 AM");
 };

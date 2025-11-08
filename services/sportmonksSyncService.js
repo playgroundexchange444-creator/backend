@@ -133,7 +133,6 @@ export const fetchLiveMatches = async () => {
       if (Array.isArray(runs) && runs.length) {
         const teamAScoreObj = runs.find((r) => r.team_id === m.localteam_id);
         const teamBScoreObj = runs.find((r) => r.team_id === m.visitorteam_id);
-
         if (teamAScoreObj) {
           teamA_score = `${teamAScoreObj.score ?? 0}/${
             teamAScoreObj.wickets ?? 0
@@ -183,6 +182,21 @@ export const fetchLiveMatches = async () => {
       .map(normalize)
       .filter(Boolean);
 
+    // ⏰ Auto Status Update
+    const nowTime = new Date();
+    for (const match of allFixtures) {
+      if (match.status === "upcoming" && new Date(match.startTime) <= nowTime) {
+        match.status = "live";
+      }
+      if (match.status === "live") {
+        const matchStart = new Date(match.startTime);
+        const hoursPassed = (nowTime - matchStart) / (1000 * 60 * 60);
+        if (hoursPassed > 12) {
+          match.status = "completed";
+        }
+      }
+    }
+
     const grouped = {
       live: allFixtures.filter((m) => m.status === "live"),
       upcoming: allFixtures.filter((m) => m.status === "upcoming"),
@@ -206,18 +220,18 @@ export const fetchLiveMatches = async () => {
           },
         }))
       );
-      logger.info(`✅ ${allFixtures.length} matches synced`);
+      logger.info(` ${allFixtures.length} matches synced`);
     } else {
-      logger.warn("⚠️ No valid matches fetched");
+      logger.warn(" No valid matches fetched");
     }
 
     logger.info(
-      `📊 Counts → Live: ${grouped.live.length}, Upcoming: ${grouped.upcoming.length}, Completed: ${grouped.completed.length}`
+      ` Counts → Live: ${grouped.live.length}, Upcoming: ${grouped.upcoming.length}, Completed: ${grouped.completed.length}`
     );
 
     return { success: true, grouped, byLeague };
   } catch (err) {
-    logger.error("❌ SportMonks Fetch Error:", err.message);
+    logger.error("SportMonks Fetch Error:", err.message);
     return {
       success: false,
       grouped: { live: [], upcoming: [], completed: [], byLeague: {} },
@@ -227,8 +241,8 @@ export const fetchLiveMatches = async () => {
 
 export const startSportMonksAutoSync = () => {
   cron.schedule("*/10 * * * *", async () => {
-    logger.info("🔁 Auto-sync triggered...");
+    logger.info("Auto-sync triggered...");
     await fetchLiveMatches();
   });
-  logger.info("✅ SportMonks auto-sync scheduled every 10 minutes");
+  logger.info("SportMonks auto-sync scheduled every 10 minutes");
 };

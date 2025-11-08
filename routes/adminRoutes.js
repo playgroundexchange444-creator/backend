@@ -1,6 +1,7 @@
 import express from "express";
 import { verifyToken, verifyAdmin } from "../middlewares/authMiddleware.js";
 import {
+  adminLogin,
   getDashboardStats,
   getAllUsers,
   getPendingTransactions,
@@ -12,7 +13,10 @@ import {
 
 const router = express.Router();
 
+router.post("/login", adminLogin);
+
 router.use(verifyToken, verifyAdmin);
+
 router.get("/dashboard", getDashboardStats);
 router.get("/users", getAllUsers);
 router.get("/transactions/pending", getPendingTransactions);

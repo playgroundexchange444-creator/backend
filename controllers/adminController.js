@@ -25,13 +25,11 @@ export const adminLogin = async (req, res, next) => {
   try {
     const { username, password } = req.body;
     const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-
     if (username !== ADMIN_USERNAME) {
       return res
         .status(403)
         .json({ success: false, message: "Only admin allowed" });
     }
-
     const admin = await User.findOne({ username: ADMIN_USERNAME });
     if (!admin) {
       return res
