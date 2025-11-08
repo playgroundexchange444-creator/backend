@@ -29,6 +29,7 @@ const app = express();
 app.use(express.json({ limit: "10mb" }));
 
 // ✅ CORS setup (allow your frontend domains)
+// ✅ CORS setup (allow your frontend domains)
 const allowedOrigins = [
   "https://superadmin.playgroundexchange.live", // Admin frontend
   "https://playgroundexchange.live",            // Main frontend ✅ added
@@ -50,8 +51,7 @@ app.use(
         return callback(new Error("Not allowed by CORS"));
       }
     },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    credentials: true, // allow cookies/auth headers
+    credentials: true,
   })
 );
 
