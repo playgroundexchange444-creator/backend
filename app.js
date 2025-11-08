@@ -24,18 +24,36 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// ✅ Middleware: JSON parsing
 app.use(express.json({ limit: "10mb" }));
+
+// ✅ CORS setup (allow your frontend domain + localhost)
+const allowedOrigins = [
+  "https://superadmin.playgroundexchange.live", // your production frontend
+  "http://localhost:5173", // local dev
+  "http://localhost:5174", // local dev (Vite alternate)
+];
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like curl or mobile apps)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        console.warn("❌ CORS blocked request from origin:", origin);
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    credentials: true,
+    credentials: true, // important if you're using cookies or auth headers
   })
 );
 
+// ✅ Logging middlewares
 app.use(morgan("dev"));
-
 app.use(
   pinoHttp({
     logger,
@@ -44,8 +62,10 @@ app.use(
   })
 );
 
+// ✅ Static file serving
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// ✅ API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/odds", oddsRoutes);
 app.use("/api/user", userRoutes);
@@ -58,10 +78,12 @@ app.use("/api/public", publicRoutes);
 app.use("/api/commission", commissionRoutes);
 app.use("/api/sportmonks", sportmonksRoutes);
 
+// ✅ Health check route
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK", uptime: process.uptime() });
 });
 
+// ✅ Error handling middleware
 app.use(errorHandler);
 
 export default app;
