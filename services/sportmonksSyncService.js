@@ -2,6 +2,7 @@ import axios from "axios";
 import cron from "node-cron";
 import Match from "../models/Match.js";
 import logger from "../config/logger.js";
+import { getIO } from "../sockets/socket.js"; // ✅ use your existing socket
 
 const getTeamImage = (teamName, apiImg) => {
   if (apiImg) return apiImg;
@@ -62,11 +63,8 @@ export const fetchLiveMatches = async () => {
     const token = process.env.SPORTMONKS_API_KEY;
 
     if (!base || !token) {
-      logger.warn("⚠️ Missing SPORTMONKS credentials");
-      return {
-        success: false,
-        grouped: { live: [], upcoming: [], completed: [], byLeague: {} },
-      };
+      logger.warn("Missing SPORTMONKS credentials");
+      return { success: false };
     }
 
     const now = new Date();
@@ -88,7 +86,7 @@ export const fetchLiveMatches = async () => {
       )}&filter[status]=Finished&include=league,localteam,visitorteam`,
     };
 
-    logger.info("📡 Fetching from SportMonks...");
+    logger.info("Fetching from SportMonks...");
 
     const [liveRes, upcomingRes, completedRes] = await Promise.all([
       axios.get(urls.live).catch(() => ({ data: {} })),
@@ -99,10 +97,14 @@ export const fetchLiveMatches = async () => {
     const parse = (res) => res?.data?.data || [];
 
     const normalize = (m) => {
-      const local = m.localteam?.data || m.localteam || {};
-      const visitor = m.visitorteam?.data || m.visitorteam || {};
-      const league = m.league?.data || m.league || {};
-      const s = (m.status || "").toLowerCase();
+      const local =
+        m.localteam && m.localteam.data ? m.localteam.data : m.localteam || {};
+      const visitor =
+        m.visitorteam && m.visitorteam.data
+          ? m.visitorteam.data
+          : m.visitorteam || {};
+      const league = m.league && m.league.data ? m.league.data : m.league || {};
+      const s = String(m.status || "").toLowerCase();
 
       const runs = Array.isArray(m.runs)
         ? m.runs
@@ -113,11 +115,7 @@ export const fetchLiveMatches = async () => {
       if (!m.localteam_id || !m.visitorteam_id) return null;
 
       let status = "upcoming";
-      if (
-        ["live", "stump", "tea", "lunch", "innings", "rain", "drinks"].some(
-          (k) => s.includes(k)
-        )
-      )
+      if (["live", "stump", "innings", "drinks"].some((k) => s.includes(k)))
         status = "live";
       else if (
         ["finished", "completed", "result", "ft", "ended"].some((k) =>
@@ -131,26 +129,26 @@ export const fetchLiveMatches = async () => {
       let teamA_score = null;
       let teamB_score = null;
       if (Array.isArray(runs) && runs.length) {
-        const teamAScoreObj = runs.find((r) => r.team_id === m.localteam_id);
-        const teamBScoreObj = runs.find((r) => r.team_id === m.visitorteam_id);
-        if (teamAScoreObj) {
-          teamA_score = `${teamAScoreObj.score ?? 0}/${
-            teamAScoreObj.wickets ?? 0
-          } (${teamAScoreObj.overs ?? 0})`;
-        }
-        if (teamBScoreObj) {
-          teamB_score = `${teamBScoreObj.score ?? 0}/${
-            teamBScoreObj.wickets ?? 0
-          } (${teamBScoreObj.overs ?? 0})`;
-        }
+        const a = runs.find(
+          (r) => Number(r.team_id) === Number(m.localteam_id)
+        );
+        const b = runs.find(
+          (r) => Number(r.team_id) === Number(m.visitorteam_id)
+        );
+        if (a)
+          teamA_score = `${a.score ?? 0}/${a.wickets ?? 0} (${a.overs ?? 0})`;
+        if (b)
+          teamB_score = `${b.score ?? 0}/${b.wickets ?? 0} (${b.overs ?? 0})`;
       }
 
-      let winner = null;
-      if (status === "completed" && m.winner_team_id) {
-        if (m.winner_team_id === m.localteam_id) winner = local.name;
-        else if (m.winner_team_id === m.visitorteam_id) winner = visitor.name;
-        else winner = "Draw / No Result";
-      }
+      const winner =
+        status === "completed" && m.winner_team_id
+          ? m.winner_team_id === m.localteam_id
+            ? local.name
+            : m.winner_team_id === m.visitorteam_id
+            ? visitor.name
+            : "Draw / No Result"
+          : null;
 
       const leagueId = m.league_id || league.id || null;
       const leagueName =
@@ -182,67 +180,52 @@ export const fetchLiveMatches = async () => {
       .map(normalize)
       .filter(Boolean);
 
-    // ⏰ Auto Status Update
-    const nowTime = new Date();
-    for (const match of allFixtures) {
-      if (match.status === "upcoming" && new Date(match.startTime) <= nowTime) {
-        match.status = "live";
-      }
-      if (match.status === "live") {
-        const matchStart = new Date(match.startTime);
-        const hoursPassed = (nowTime - matchStart) / (1000 * 60 * 60);
-        if (hoursPassed > 12) {
-          match.status = "completed";
-        }
-      }
+    if (!allFixtures.length) {
+      logger.warn("No valid matches fetched");
+      return;
     }
 
-    const grouped = {
-      live: allFixtures.filter((m) => m.status === "live"),
-      upcoming: allFixtures.filter((m) => m.status === "upcoming"),
-      completed: allFixtures.filter((m) => m.status === "completed"),
-    };
-
-    const byLeague = {};
-    allFixtures.forEach((m) => {
-      if (!m.leagueName) return;
-      if (!byLeague[m.leagueName]) byLeague[m.leagueName] = [];
-      byLeague[m.leagueName].push(m);
-    });
-
-    if (allFixtures.length) {
-      await Match.bulkWrite(
-        allFixtures.map((m) => ({
-          updateOne: {
-            filter: { matchId: m.matchId },
-            update: { $set: m },
-            upsert: true,
-          },
-        }))
-      );
-      logger.info(` ${allFixtures.length} matches synced`);
-    } else {
-      logger.warn(" No valid matches fetched");
-    }
-
-    logger.info(
-      ` Counts → Live: ${grouped.live.length}, Upcoming: ${grouped.upcoming.length}, Completed: ${grouped.completed.length}`
+    // save or update
+    await Match.bulkWrite(
+      allFixtures.map((m) => ({
+        updateOne: {
+          filter: { matchId: m.matchId },
+          update: { $set: m },
+          upsert: true,
+        },
+      }))
     );
 
-    return { success: true, grouped, byLeague };
+    logger.info(`${allFixtures.length} matches synced`);
+
+    // ✅ Emit live score updates via Socket.io
+    const io = getIO();
+    const liveMatches = allFixtures.filter((m) => m.status === "live");
+
+    liveMatches.forEach((match) => {
+      io.emit("match:scoreUpdate", {
+        matchId: match.matchId,
+        teamA: match.teamA,
+        teamB: match.teamB,
+        teamA_score: match.teamA_score,
+        teamB_score: match.teamB_score,
+        status: match.status,
+      });
+    });
+
+    logger.info(`⚡ Live scores emitted for ${liveMatches.length} matches`);
   } catch (err) {
     logger.error("SportMonks Fetch Error:", err.message);
-    return {
-      success: false,
-      grouped: { live: [], upcoming: [], completed: [], byLeague: {} },
-    };
   }
 };
 
 export const startSportMonksAutoSync = () => {
-  cron.schedule("*/10 * * * *", async () => {
+  if (global.__sportmonksScheduled) return;
+  global.__sportmonksScheduled = true;
+  cron.schedule("*/1 * * * *", async () => {
+    // every 1 min (change back to 10 later)
     logger.info("Auto-sync triggered...");
     await fetchLiveMatches();
   });
-  logger.info("SportMonks auto-sync scheduled every 10 minutes");
+  logger.info("SportMonks auto-sync scheduled every 1 minute");
 };

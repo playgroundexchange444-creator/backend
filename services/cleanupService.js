@@ -43,5 +43,5 @@ export const autoCleanup = async () => {
 
 export const startAutoCleanup = () => {
   cron.schedule("0 2 * * *", autoCleanup);
-  logger.info("🕑 uto cleanup scheduled Every day at 2:00 AM");
+  logger.info(" uto cleanup scheduled Every day at 2:00 AM");
 };
